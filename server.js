@@ -2,6 +2,7 @@ const express = require('express');
 const cors = require('cors');
 const dotenv = require('dotenv');
 const path = require('path');
+const { initDatabase } = require('./database/init');
 
 // Load environment variables
 dotenv.config({ path: path.join(__dirname, '.env') });
@@ -29,8 +30,8 @@ app.use('/api/reports', reportRoutes);
 
 // Health check endpoint
 app.get('/health', (req, res) => {
-  res.json({ 
-    status: 'ok', 
+  res.json({
+    status: 'ok',
     message: 'Praxiom Loans API is running',
     timestamp: new Date().toISOString()
   });
@@ -53,9 +54,10 @@ app.use((err, req, res, next) => {
   });
 });
 
-// Start server
-app.listen(PORT, () => {
-  console.log(`
+// Initialize database BEFORE starting server
+initDatabase().then(() => {
+  app.listen(PORT, () => {
+    console.log(`
 ╔══════════════════════════════════════════════╗
 ║     PRAXIUM LOANS API SERVER                 ║
 ╠══════════════════════════════════════════════╣
@@ -63,7 +65,11 @@ app.listen(PORT, () => {
 ║  Environment: ${process.env.NODE_ENV}                    ║
 ║  Database: ${process.env.DB_PATH}           ║
 ╚══════════════════════════════════════════════╝
-  `);
+    `);
+  });
+}).catch(err => {
+  console.error('Failed to initialize database:', err);
+  process.exit(1);
 });
 
 module.exports = app;
