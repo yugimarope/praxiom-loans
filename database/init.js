@@ -9,56 +9,60 @@ require('dotenv').config({ path: path.join(__dirname, '..', '.env') });
 const dbPath = path.join(__dirname, 'praxiom_loans.db');
 const db = new sqlite3.Database(dbPath);
 
-const schemaSQL = fs.readFileSync(path.join(__dirname, 'schema.sql'), 'utf8');
-
-db.serialize(() => {
-  // Create all tables
-  db.run(schemaSQL, (err) => {
-    if (err) {
-      console.error('❌ Error creating tables:', err);
-      return;
-    }
-    console.log('✅ Database tables created successfully!');
-
-    // Initialize startup liquidity
-    const startupLiquidity = parseFloat(process.env.STARTUP_LIQUIDITY) || 10000;
-    const transactionId = 'TXN-' + Date.now();
-
-    db.run(
-      `INSERT INTO company_treasury (transaction_id, type, amount, description, running_balance)
-       VALUES (?, 'deposit', ?, 'Startup Liquidity', ?)`,
-      [transactionId, startupLiquidity, startupLiquidity],
-      (err) => {
+async function initDatabase() {
+  return new Promise((resolve, reject) => {
+    const schemaSQL = fs.readFileSync(path.join(__dirname, 'schema.sql'), 'utf8');
+    
+    db.serialize(() => {
+      // Create all tables
+      db.run(schemaSQL, (err) => {
         if (err) {
-          console.error('❌ Error initializing treasury:', err);
-        } else {
-          console.log(`✅ Startup liquidity set: P${startupLiquidity}`);
+          console.error('❌ Error creating tables:', err);
+          reject(err);
+          return;
         }
-      }
-    );
-
-    // Create default admin user
-    const adminId = 'ADMIN-' + uuidv4();
-    const hashedPassword = bcrypt.hashSync('admin123', 10);
-
-    db.run(
-      `INSERT INTO admin_users (user_id, username, password_hash, full_name, role)
-       VALUES (?, 'admin', ?, 'Mompoloki Marope', 'super_admin')`,
-      [adminId, hashedPassword],
-      (err) => {
-        if (err) {
-          console.error('❌ Error creating admin user:', err);
-        } else {
-          console.log('✅ Default admin user created');
-          console.log('   Username: admin');
-          console.log('   Password: admin123');
-          console.log('   ⚠️  CHANGE THIS PASSWORD IMMEDIATELY!');
-        }
-      }
-    );
-
-    console.log('\n🎉 Database initialization complete!');
+        console.log('✅ Database tables created successfully!');
+        
+        // Initialize startup liquidity
+        const startupLiquidity = parseFloat(process.env.STARTUP_LIQUIDITY) || 10000;
+        const transactionId = 'TXN-' + Date.now();
+        db.run(
+          `INSERT INTO company_treasury (transaction_id, type, amount, description, running_balance)
+           VALUES (?, 'deposit', ?, 'Startup Liquidity', ?)`,
+          [transactionId, startupLiquidity, startupLiquidity],
+          (err) => {
+            if (err) {
+              console.error('❌ Error initializing treasury:', err);
+            } else {
+              console.log(`✅ Startup liquidity set: P${startupLiquidity}`);
+            }
+          }
+        );
+        
+        // Create default admin user
+        const adminId = 'ADMIN-' + uuidv4();
+        const hashedPassword = bcrypt.hashSync('admin123', 10);
+        db.run(
+          `INSERT INTO admin_users (user_id, username, password_hash, full_name, role)
+           VALUES (?, 'admin', ?, 'Mompoloki Marope', 'super_admin')`,
+          [adminId, hashedPassword],
+          (err) => {
+            if (err) {
+              console.error('❌ Error creating admin user:', err);
+            } else {
+              console.log('✅ Default admin user created');
+              console.log('   Username: admin');
+              console.log('   Password: admin123');
+              console.log('   ⚠️  CHANGE THIS PASSWORD IMMEDIATELY!');
+            }
+          }
+        );
+        
+        console.log('\n🎉 Database initialization complete!');
+        resolve(db);
+      });
+    });
   });
-});
+}
 
-module.exports = db;
+module.exports = { db, initDatabase };
