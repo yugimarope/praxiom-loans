@@ -1,8 +1,11 @@
-const db = require('../models/database');
+const crypto = require('crypto');
 const bcrypt = require('bcryptjs');
 const jwt = require('jsonwebtoken');
-const crypto = require('crypto');
-const uuidv4 = () => crypto.randomUUID();
+const db = require('../../database/db');
+
+const generateId = (prefix = '') => {
+  return prefix + Date.now().toString(36) + Math.random().toString(36).substr(2, 9);
+};
 
 class AuthController {
   // Login
